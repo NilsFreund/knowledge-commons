@@ -45,7 +45,7 @@ a frontend instead.
 
 Comments are rare and one line. The code should say what it does through names and types. A comment
 earns its place by recording a why that the code cannot express, such as a measured trade-off or a
-constraint from someone else's file format. The repository currently has 38 of them.
+constraint from someone else's file format. The repository currently has 41 of them.
 
 No type assertions. `strict`, `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes` are on,
 and there are currently zero `as` casts outside `as const`. Reach for a type guard or a `Map`
@@ -68,7 +68,7 @@ finish.
 
 ## Tests
 
-`bun test` runs 239 of them across every layer. The core is tested directly, the MCP server through a
+`bun test` runs 260 of them across every layer. The core is tested directly, the MCP server through a
 real client over an in-memory transport pair, and the CLI by calling `main()` and reading what it
 prints. Fixtures are invented. No real knowledge stores, no real repository names and no
 personal paths belong in the tests or anywhere else in this repository.

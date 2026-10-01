@@ -14,6 +14,8 @@ const TOOLS = [
   'knowledge_write',
   'knowledge_prompt',
   'knowledge_index',
+  'knowledge_remove',
+  'knowledge_rename',
   'research_write',
   'research_search',
   'research_read',
@@ -147,6 +149,38 @@ describe('knowledge_prompt', () => {
     const { text, isError } = await call('knowledge_prompt', { name: 'nope' })
     expect(isError).toBe(true)
     expect(text).toContain('polish')
+  })
+})
+
+describe('knowledge_remove and knowledge_rename', () => {
+  beforeEach(async () => {
+    await write()
+    await write({ name: 'feedback-commit-messages', description: 'One line only', body: 'See [[feedback-never-commit]].', confirm: true })
+  })
+
+  test('refuses to remove an entry other entries still link to', async () => {
+    const { text, isError } = await call('knowledge_remove', { name: 'feedback-never-commit' })
+    expect(isError).toBe(true)
+    expect(text).toContain('feedback-commit-messages')
+  })
+
+  test('removes it on force and names what now dangles', async () => {
+    const { text, isError } = await call('knowledge_remove', { name: 'feedback-never-commit', force: true })
+    expect(isError).toBe(false)
+    expect(text).toContain('Now linking to nothing: feedback-commit-messages')
+  })
+
+  test('renames and repoints the links instead of breaking them', async () => {
+    const { text } = await call('knowledge_rename', { name: 'feedback-never-commit', to: 'git-is-the-users-job' })
+    expect(text).toContain('Repointed 1 link(s)')
+
+    const read = await call('knowledge_read', { names: ['feedback-commit-messages'] })
+    expect(read.text).toContain('[[git-is-the-users-job]]')
+  })
+
+  test('refuses a new name that is already taken', async () => {
+    const { isError } = await call('knowledge_rename', { name: 'feedback-never-commit', to: 'feedback-commit-messages' })
+    expect(isError).toBe(true)
   })
 })
 

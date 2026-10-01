@@ -247,6 +247,8 @@ you edit by hand takes effect at once.
 | `knowledge_write` | Record a fact, with duplicate detection |
 | `knowledge_prompt` | The current instructions for a stored command |
 | `knowledge_index` | Everything in the store, across all scopes |
+| `knowledge_remove` | Delete an entry, refusing while other entries link to it |
+| `knowledge_rename` | Rename an entry and repoint every link to it |
 | `research_write` | Record a research result, appending a dated round if the question was asked before |
 | `research_search` | Find research on a topic before doing it again |
 | `research_read` | Full documents by name, every round included |
@@ -268,6 +270,7 @@ Search matches whole words and word prefixes, so `rec` finds `recording` while `
 | `kn research list\|search\|read` | Recorded research |
 | `kn import claude\|codex` | Bring in what another agent already knows |
 | `kn install` | Register the server and command stubs with your agents |
+| `kn rm` `kn mv` | Remove or rename an entry, with the same link checks |
 | `kn doctor` | Broken links, duplicate names, near-duplicates, unreadable files |
 | `kn stats` | How often the tools and commands have been called |
 | `kn mcp` | Serve over stdio; your agents run this, you normally do not |

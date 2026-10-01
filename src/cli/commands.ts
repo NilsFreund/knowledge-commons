@@ -4,6 +4,7 @@ import {
   DEFAULT_SCOPE,
   discoverSources,
   duplicateKey,
+  entryId,
   formatError,
   initStore,
   loadConfig,
@@ -255,6 +256,42 @@ export const COMMANDS: Record<string, Command> = {
       }
 
       throw new UsageError(`unknown research action \`${action}\``)
+    },
+  },
+
+  rm: {
+    usage: 'kn rm <name> [--force]',
+    summary: 'Remove an entry, unless something still links to it',
+    options: { ...STORE, force: { type: 'boolean', default: false } },
+    async run({ options, positionals }) {
+      const [name, ...rest] = positionals
+      if (name === undefined || rest.length > 0) throw new UsageError('rm takes exactly one entry name')
+
+      const store = await openStore(options)
+      const outcome = unwrap(await store.remove(name, { force: options.flag('force') }))
+
+      console.log(`Removed ${entryId(outcome.entry)}.`)
+      for (const source of outcome.inboundLinks) console.log(`  ${source} now links to nothing`)
+      return 0
+    },
+  },
+
+  mv: {
+    usage: 'kn mv <name> <new-name>',
+    summary: 'Rename an entry and repoint every link to it',
+    options: STORE,
+    async run({ options, positionals }) {
+      const [from, to, ...rest] = positionals
+      if (from === undefined || to === undefined || rest.length > 0) {
+        throw new UsageError('mv takes the current name and the new one')
+      }
+
+      const store = await openStore(options)
+      const outcome = unwrap(await store.rename(from, to))
+
+      console.log(`Renamed ${outcome.previousName} to ${entryId(outcome.entry)}.`)
+      if (outcome.rewritten.length > 0) console.log(`Repointed ${outcome.rewritten.length} link(s): ${outcome.rewritten.join(', ')}`)
+      return 0
     },
   },
 

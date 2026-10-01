@@ -43,6 +43,8 @@ export {
   type ContextInput,
   type ContextResult,
   type LoadedEntries,
+  type RemoveOutcome,
+  type RenameOutcome,
   type SearchHit,
   type SearchOptions,
   type StoreOptions,

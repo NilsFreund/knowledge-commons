@@ -1,7 +1,7 @@
 import { mkdir, readFile, readdir, rm, stat } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { z } from 'zod'
-import { loadConfig } from './config.ts'
+import { loadConfig, saveConfig } from './config.ts'
 import { diagnose, type Diagnostic } from './doctor.ts'
 import { findCandidates, type Candidate } from './duplicates.ts'
 import { parseEntryFile, serializeEntryFile } from './entry-file.ts'
@@ -51,6 +51,17 @@ export interface ContextResult {
   readonly instructionFiles: readonly string[]
 }
 
+export interface RemoveOutcome {
+  readonly entry: Entry
+  readonly inboundLinks: readonly string[]
+}
+
+export interface RenameOutcome {
+  readonly entry: Entry
+  readonly previousName: string
+  readonly rewritten: readonly string[]
+}
+
 export interface SearchHit {
   readonly entry: Entry
   readonly score: number
@@ -73,9 +84,13 @@ export interface StoreOptions {
 export class Store {
   private constructor(
     readonly root: string,
-    readonly config: StoreConfig,
+    private current: StoreConfig,
     private readonly today: () => string,
   ) {}
+
+  get config(): StoreConfig {
+    return this.current
+  }
 
   static async open(root: string, options: StoreOptions = {}): Promise<Result<Store>> {
     const resolved = resolve(root)
@@ -180,11 +195,7 @@ export class Store {
 
   /** Two-step on purpose: reporting look-alikes rather than writing them is what keeps copies out. */
   async write(rawInput: WriteInput): Promise<Result<WriteOutcome>> {
-    try {
-      return await withWriteLock(this.root, () => this.writeOne(rawInput))
-    } catch (cause) {
-      return err('io_failed', cause instanceof Error ? cause.message : String(cause))
-    }
+    return await this.locked(() => this.writeOne(rawInput))
   }
 
   private async writeOne(rawInput: WriteInput): Promise<Result<WriteOutcome>> {
@@ -227,6 +238,59 @@ export class Store {
     return ok({ status: 'created', entry })
   }
 
+  /** Refuses while other entries still link to it, because a silent dangling link is worse than a refusal. */
+  async remove(name: string, options: { force?: boolean } = {}): Promise<Result<RemoveOutcome>> {
+    return await this.locked(async () => {
+      const { entries } = await this.load()
+      const entry = entries.find((candidate) => candidate.name === name)
+      if (!entry) return err('entry_not_found', `unknown entry \`${name}\``)
+
+      const inboundLinks = linkedFrom(entries, name)
+      if (inboundLinks.length > 0 && options.force !== true) {
+        return err('entry_in_use', `\`${name}\` is still linked from ${inboundLinks.length} entr${inboundLinks.length === 1 ? 'y' : 'ies'}`, [
+          ...inboundLinks,
+          'pass force to remove it anyway, or rename it instead',
+        ])
+      }
+
+      await rm(entry.path)
+      await this.saveDismissals(this.current.dismissedDuplicates.filter((pair) => !pair.includes(name)))
+      return ok({ entry, inboundLinks })
+    })
+  }
+
+  /** Rewrites every `[[link]]` pointing at the old name, so renaming never leaves a dangling reference. */
+  async rename(from: string, to: string): Promise<Result<RenameOutcome>> {
+    return await this.locked(async () => {
+      const validated = frontmatterSchema.shape.name.safeParse(to)
+      if (!validated.success) {
+        return err('invalid_entry', `\`${to}\` is not a valid name`, validated.error.issues.map((issue) => issue.message))
+      }
+
+      const { entries } = await this.load()
+      const entry = entries.find((candidate) => candidate.name === from)
+      if (!entry) return err('entry_not_found', `unknown entry \`${from}\``)
+      if (entries.some((candidate) => candidate.name === to)) return err('entry_exists', `\`${to}\` already exists`)
+
+      const renamed = await this.persist(entry.scope, relink(entry.body, from, to), { ...entry, name: to, updated: this.today() })
+      await rm(entry.path)
+
+      const rewritten: string[] = []
+      for (const other of linkedFrom(entries, from)) {
+        const source = entries.find((candidate) => candidate.name === other)
+        if (source === undefined) continue
+
+        await this.persist(source.scope, relink(source.body, from, to), source)
+        rewritten.push(other)
+      }
+
+      const swap = (candidate: string): string => (candidate === from ? to : candidate)
+      await this.saveDismissals(this.current.dismissedDuplicates.map(([a, b]) => [swap(a), swap(b)]))
+
+      return ok({ entry: renamed, previousName: from, rewritten })
+    })
+  }
+
   async readPrompt(name: string): Promise<Result<string>> {
     return await readPrompt(this.commandsDir, name)
   }
@@ -238,6 +302,22 @@ export class Store {
   async doctor(researchNames: readonly string[] = []): Promise<readonly Diagnostic[]> {
     const { entries, problems } = await this.load()
     return diagnose({ entries, problems, config: this.config, researchNames })
+  }
+
+  /** A dismissal names entries, so removing or renaming one has to carry the list along or it rots. */
+  private async saveDismissals(dismissedDuplicates: readonly (readonly [string, string])[]): Promise<void> {
+    if (JSON.stringify(dismissedDuplicates) === JSON.stringify(this.current.dismissedDuplicates)) return
+
+    this.current = { ...this.current, dismissedDuplicates: dismissedDuplicates.map(([a, b]) => [a, b]) }
+    await saveConfig(this.root, this.current)
+  }
+
+  private async locked<T>(run: () => Promise<Result<T>>): Promise<Result<T>> {
+    try {
+      return await withWriteLock(this.root, run)
+    } catch (cause) {
+      return err('io_failed', cause instanceof Error ? cause.message : String(cause))
+    }
   }
 
   private async update(previous: Entry, input: ValidatedWriteInput): Promise<Result<WriteOutcome>> {
@@ -271,6 +351,14 @@ export class Store {
     const files = await readdir(join(this.knowledgeDir, scope))
     return files.filter((file) => file.endsWith('.md')).sort()
   }
+}
+
+function linkedFrom(entries: readonly Entry[], name: string): readonly string[] {
+  return entries.filter((entry) => entry.name !== name && entry.links.includes(name)).map((entry) => entry.name)
+}
+
+function relink(body: string, from: string, to: string): string {
+  return body.replaceAll(`[[${from}]]`, `[[${to}]]`)
 }
 
 function score(entries: readonly Entry[], query: string, minimum: number): SearchHit[] {

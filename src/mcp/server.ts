@@ -2,6 +2,7 @@ import { McpServer, type CallToolResult } from '@modelcontextprotocol/server'
 import { serveStdio } from '@modelcontextprotocol/server/stdio'
 import { z } from 'zod'
 import {
+  entryId,
   formatError,
   researchWriteSchema,
   ResearchStore,
@@ -133,6 +134,49 @@ export function createServer(options: ServerOptions): McpServer {
         const { entries } = await store.load()
         if (entries.length === 0) return 'The store is empty. Record the first fact with knowledge_write.'
         return renderIndex(entries.map(toIndexRow))
+      }),
+  )
+
+  server.registerTool(
+    'knowledge_remove',
+    {
+      title: 'Remove a knowledge entry',
+      description:
+        'Delete an entry. The case this exists for is two entries that already say the same thing: fold one into the other with knowledge_write and updateName, then remove the one left over. It refuses while other entries link to the name, so rename is the better move when the fact is still referenced.',
+      inputSchema: z.object({
+        name: z.string().min(1),
+        force: z.boolean().default(false).describe('Remove it even though entries link to it, leaving those links dangling'),
+      }),
+      annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true },
+    },
+    async ({ name, force }) =>
+      call(options, 'knowledge_remove', async (store) => {
+        const outcome = await store.remove(name, { force })
+        if (!outcome.ok) return outcome
+
+        const dangling = outcome.value.inboundLinks
+        const text = `Removed ${entryId(outcome.value.entry)}.${dangling.length > 0 ? ` Now linking to nothing: ${dangling.join(', ')}.` : ''}`
+        return { text, detail: dangling.length > 0 ? 'forced' : 'clean' }
+      }),
+  )
+
+  server.registerTool(
+    'knowledge_rename',
+    {
+      title: 'Rename a knowledge entry',
+      description:
+        'Give an entry a different name and repoint every [[link]] that pointed at the old one, including a link it holds to itself. Use it when a name stopped describing what the entry decides.',
+      inputSchema: z.object({ name: z.string().min(1), to: z.string().min(1) }),
+      annotations: { readOnlyHint: false, destructiveHint: false },
+    },
+    async ({ name, to }) =>
+      call(options, 'knowledge_rename', async (store) => {
+        const outcome = await store.rename(name, to)
+        if (!outcome.ok) return outcome
+
+        const { entry, previousName, rewritten } = outcome.value
+        const links = rewritten.length === 0 ? '' : ` Repointed ${rewritten.length} link(s): ${rewritten.join(', ')}.`
+        return { text: `Renamed ${previousName} to ${entryId(entry)}.${links}`, detail: String(rewritten.length) }
       }),
   )
 

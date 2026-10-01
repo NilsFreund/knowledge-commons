@@ -87,7 +87,7 @@ describe('commands against a store', () => {
   })
 
   async function write(name: string, description: string, body: string): Promise<void> {
-    const input = JSON.stringify({ name, description, type: 'feedback', scope: 'global', body })
+    const input = JSON.stringify({ name, description, type: 'feedback', scope: 'global', body, confirm: true })
     const original = process.stdin
     Object.defineProperty(process, 'stdin', {
       value: (async function* () {
@@ -156,6 +156,37 @@ describe('commands against a store', () => {
     const result = await run('stats', '--store', store)
     expect(result.out).toContain('doctor')
     expect(result.out).toContain('cli')
+  })
+
+  test('removes an entry and refuses while something links to it', async () => {
+    await write('feedback-never-commit', 'The user does all git themselves', 'Never run git commit.')
+    await write('feedback-commit-messages', 'One line only', 'See [[feedback-never-commit]].')
+
+    const blocked = await run('rm', 'feedback-never-commit', '--store', store)
+    expect(blocked.code).toBe(1)
+    expect(blocked.err).toContain('still linked from')
+
+    const forced = await run('rm', 'feedback-never-commit', '--force', '--store', store)
+    expect(forced.code).toBe(0)
+    expect(forced.out).toContain('Removed global/feedback-never-commit')
+  })
+
+  test('renames an entry and reports the repointed links', async () => {
+    await write('feedback-never-commit', 'The user does all git themselves', 'Never run git commit.')
+    await write('feedback-commit-messages', 'One line only', 'See [[feedback-never-commit]].')
+
+    const result = await run('mv', 'feedback-never-commit', 'git-is-the-users-job', '--store', store)
+    expect(result.code).toBe(0)
+    expect(result.out).toContain('Repointed 1 link(s)')
+  })
+
+  test.each([
+    [['rm'], 'exactly one entry name'],
+    [['mv', 'only-one'], 'the current name and the new one'],
+  ])('treats %p as a usage error', async (args, message) => {
+    const result = await run(...(args as string[]), '--store', store)
+    expect(result.code).toBe(2)
+    expect(result.err).toContain(message)
   })
 
   test('says so when there is no research', async () => {

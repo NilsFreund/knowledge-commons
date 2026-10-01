@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { configSchema, initStore, saveConfig, Store, type WriteInput } from '../src/core/index.ts'
+import { configSchema, initStore, loadConfig, saveConfig, Store, type StoreConfig, type Result, type WriteInput } from '../src/core/index.ts'
 import { COMMIT_MESSAGES, NEVER_COMMIT, NEVER_COMMIT_REWORDED } from './fixtures.ts'
 
 const TODAY = '2026-09-21'
@@ -18,6 +18,11 @@ async function open(): Promise<Store> {
 
 function entry(input: Partial<WriteInput> & Pick<WriteInput, 'name' | 'description' | 'body'>): WriteInput {
   return { type: 'feedback', scope: 'global', ...input }
+}
+
+function unwrapConfig(result: Result<StoreConfig>): StoreConfig {
+  if (!result.ok) throw new Error(result.error.message)
+  return result.value
 }
 
 async function write(input: WriteInput) {
@@ -329,5 +334,108 @@ describe('repository instructions', () => {
     const result = await store.context({ cwd: '/tmp' })
     expect(result.repoRoot).toBeUndefined()
     expect(result.instructionFiles).toEqual([])
+  })
+})
+
+describe('remove', () => {
+  beforeEach(async () => {
+    await write(entry(NEVER_COMMIT))
+    await write(entry({ ...COMMIT_MESSAGES, body: `${COMMIT_MESSAGES.body} See [[feedback-never-commit]].` }))
+  })
+
+  test('refuses while another entry still links to it, and names the source', async () => {
+    const result = await store.remove('feedback-never-commit')
+    expect(result.ok).toBe(false)
+    if (!result.ok) {
+      expect(result.error.code).toBe('entry_in_use')
+      expect(result.error.detail).toContain('feedback-commit-messages')
+    }
+    expect((await store.load()).entries).toHaveLength(2)
+  })
+
+  test('removes it on force and says what now dangles', async () => {
+    const result = await store.remove('feedback-never-commit', { force: true })
+    expect(result.ok && result.value.inboundLinks).toEqual(['feedback-commit-messages'])
+    expect((await store.load()).entries).toHaveLength(1)
+  })
+
+  test('removes an unlinked entry without ceremony', async () => {
+    expect((await store.remove('feedback-commit-messages')).ok).toBe(true)
+    expect((await store.load()).entries).toHaveLength(1)
+  })
+
+  test('does not let an entry block its own removal by linking to itself', async () => {
+    await write(entry({ name: 'self-linked', description: 'Points at itself', body: 'See [[self-linked]].', confirm: true }))
+    expect((await store.remove('self-linked')).ok).toBe(true)
+  })
+
+  test('drops a dismissal that named it, instead of leaving the list rotting', async () => {
+    await saveConfig(root, configSchema.parse({ dismissedDuplicates: [['feedback-never-commit', 'feedback-commit-messages']] }))
+    store = await open()
+
+    await store.remove('feedback-commit-messages')
+    expect(unwrapConfig(await loadConfig(root)).dismissedDuplicates).toEqual([])
+  })
+
+  test('reports an unknown entry', async () => {
+    const result = await store.remove('nope')
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error.code).toBe('entry_not_found')
+  })
+})
+
+describe('rename', () => {
+  beforeEach(async () => {
+    await write(entry(NEVER_COMMIT))
+    await write(entry({ ...COMMIT_MESSAGES, body: `${COMMIT_MESSAGES.body} See [[feedback-never-commit]].` }))
+  })
+
+  test('moves the entry and repoints every link to it', async () => {
+    const result = await store.rename('feedback-never-commit', 'git-is-the-users-job')
+    expect(result.ok && result.value.rewritten).toEqual(['feedback-commit-messages'])
+
+    const after = await store.read(['feedback-commit-messages'])
+    expect(after.ok && after.value[0]?.body).toContain('[[git-is-the-users-job]]')
+    expect((await store.read(['feedback-never-commit'])).ok).toBe(false)
+  })
+
+  test('repoints a link the entry holds to itself', async () => {
+    await write(entry({ name: 'self-linked', description: 'Points at itself', body: 'See [[self-linked]].', confirm: true }))
+    const result = await store.rename('self-linked', 'points-at-itself')
+
+    expect(result.ok && result.value.entry.body).toContain('[[points-at-itself]]')
+    expect(await store.doctor()).toEqual([])
+  })
+
+  test('records the rename date without touching the creation date', async () => {
+    const result = await store.rename('feedback-never-commit', 'git-is-the-users-job')
+    expect(result.ok && result.value.entry.updated).toBe(TODAY)
+    expect(result.ok && result.value.entry.created).toBe(TODAY)
+  })
+
+  test('refuses a new name that is not kebab-case', async () => {
+    const result = await store.rename('feedback-never-commit', 'Not Kebab')
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error.code).toBe('invalid_entry')
+  })
+
+  test('refuses a name that is already taken', async () => {
+    const result = await store.rename('feedback-never-commit', 'feedback-commit-messages')
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error.code).toBe('entry_exists')
+  })
+
+  test('carries a dismissal across, so a reviewed pair stays reviewed', async () => {
+    await saveConfig(root, configSchema.parse({ dismissedDuplicates: [['feedback-never-commit', 'feedback-commit-messages']] }))
+    store = await open()
+
+    await store.rename('feedback-never-commit', 'git-is-the-users-job')
+    expect(unwrapConfig(await loadConfig(root)).dismissedDuplicates).toEqual([['git-is-the-users-job', 'feedback-commit-messages']])
+    expect(await store.doctor()).toEqual([])
+  })
+
+  test('leaves the store untouched when the entry does not exist', async () => {
+    expect((await store.rename('nope', 'something-else')).ok).toBe(false)
+    expect((await store.load()).entries).toHaveLength(2)
   })
 })

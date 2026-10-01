@@ -6,6 +6,7 @@ export type ErrorCode =
   | 'invalid_entry'
   | 'entry_not_found'
   | 'entry_exists'
+  | 'entry_in_use'
   | 'prompt_not_found'
   | 'io_failed'
 
