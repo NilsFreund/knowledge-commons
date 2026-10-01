@@ -18,8 +18,9 @@ there, a write that ran into the lock. Unexpected I/O is not wrapped. If a scope
 read, `load` and everything built on it will throw, and the frontends catch that at their boundary.
 
 Inside `core`, each module has one job. `store.ts` does entry operations and `research.ts` does the
-same for research documents. `entry-file.ts` handles a single file on disk. `similarity.ts` scores
-duplicates, `search.ts` scores queries, and `duplicates.ts` serves both callers of similarity.
+same for research documents. `entry-file.ts` handles a single file on disk. `text.ts` turns text
+into comparable words, `similarity.ts` scores duplicates, `search.ts` scores queries, and
+`duplicates.ts` serves both callers of similarity.
 `doctor.ts` is a pure function over loaded entries. `write.ts` and `serialize.ts` hold the write lock
 and the atomic rename. The smaller ones are `config.ts`, `prompts.ts`, `scope.ts`, `discover.ts`,
 `instructions.ts`, `stats.ts` and `init.ts`, with `types.ts` and `result.ts` for the shared shapes
@@ -45,11 +46,11 @@ a frontend instead.
 
 Comments are rare and one line. The code should say what it does through names and types. A comment
 earns its place by recording a why that the code cannot express, such as a measured trade-off or a
-constraint from someone else's file format. The repository currently has 41 of them.
+constraint from someone else's file format. The repository currently has 48 of them.
 
 No type assertions. `strict`, `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes` are on,
-and there are currently zero `as` casts outside `as const`. Reach for a type guard or a `Map`
-instead of asserting past the checker.
+and there are currently zero `as` casts outside `as const`, in the tests as well as the source.
+Reach for a type guard or a `Map` instead of asserting past the checker.
 
 A loop states its exit in the header. Split a condition into named helpers before it grows into a
 multi-line predicate. Write a priority order of fallbacks as early returns instead of chaining
@@ -68,7 +69,7 @@ finish.
 
 ## Tests
 
-`bun test` runs 260 of them across every layer. The core is tested directly, the MCP server through a
+`bun test` runs 275 of them across every layer. The core is tested directly, the MCP server through a
 real client over an in-memory transport pair, and the CLI by calling `main()` and reading what it
 prints. Fixtures are invented. No real knowledge stores, no real repository names and no
 personal paths belong in the tests or anywhere else in this repository.

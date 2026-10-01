@@ -7,18 +7,18 @@ import { findCandidates, type Candidate } from './duplicates.ts'
 import { parseEntryFile, serializeEntryFile } from './entry-file.ts'
 import { listPrompts, readPrompt } from './prompts.ts'
 import { err, ok, type KnowledgeError, type Result } from './result.ts'
-import { searchScore } from './search.ts'
+import { searchScores } from './search.ts'
 import { withWriteLock, writeFileAtomic } from './write.ts'
 import { findInstructionFiles } from './instructions.ts'
 import { resolveScope } from './scope.ts'
 import { entryId, frontmatterSchema, toIndexRow, type Entry, type IndexRow, type StoreConfig } from './types.ts'
 
-const CONTEXT_QUERY_THRESHOLD = 0.34
+const CONTEXT_QUERY_THRESHOLD = 0.25
 const CONTEXT_QUERY_LIMIT = 10
 const SEARCH_LIMIT = 20
 
 /** Below this a hit rests on one query term appearing somewhere, which buries the real matches. */
-const MIN_SEARCH_SCORE = 0.1
+const MIN_SEARCH_SCORE = 0.2
 
 export const writeInputSchema = frontmatterSchema
   .pick({ name: true, description: true, type: true })
@@ -362,7 +362,9 @@ function relink(body: string, from: string, to: string): string {
 }
 
 function score(entries: readonly Entry[], query: string, minimum: number): SearchHit[] {
-  return entries.map((entry) => ({ entry, score: searchScore(query, entry) })).filter((hit) => hit.score >= minimum)
+  return searchScores(query, entries)
+    .filter((hit) => hit.score >= minimum)
+    .map(({ item, score }) => ({ entry: item, score }))
 }
 
 function matching(entries: readonly Entry[], query: string): readonly SearchHit[] {

@@ -65,7 +65,7 @@ function brokenLinks(entries: readonly Entry[], linkable: ReadonlySet<string>): 
 function nearDuplicates(entries: readonly Entry[], config: StoreConfig): readonly Diagnostic[] {
   return findNearDuplicates(entries, config.dedupeThreshold, config.dismissedDuplicates).map(({ a, b, score }) => ({
     level: 'warning' as const,
-    message: `possible duplicate (${score.toFixed(2)}): ${entryId(a)} and ${entryId(b)} - \`kn doctor --dismiss ${a.name} ${b.name}\` if they are different rules`,
+    message: `overlap (${score.toFixed(2)}): ${entryId(a)} and ${entryId(b)} may say the same thing or the opposite. Merge a repeat, resolve a contradiction, or \`kn doctor --dismiss ${a.name} ${b.name}\` if they are unrelated`,
   }))
 }
 

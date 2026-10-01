@@ -22,7 +22,7 @@ export {
   type ResearchSummary,
   type ResearchWriteInput,
 } from './research.ts'
-export { searchScore, tokenize, type Searchable } from './search.ts'
+export { searchScores, tokenize, type Scored, type Searchable } from './search.ts'
 export { withWriteLock, writeFileAtomic } from './write.ts'
 export {
   pruneUsage,
@@ -36,7 +36,15 @@ export {
   type UsageSummary,
 } from './stats.ts'
 export { isWithin, resolveScope, type ScopeMatch } from './scope.ts'
-export { contentTokens, normalize, similarity, type SimilarityInput } from './similarity.ts'
+export {
+  buildWeights,
+  contentTokens,
+  similarity,
+  UNIFORM_WEIGHTS,
+  type SimilarityInput,
+  type TermWeights,
+} from './similarity.ts'
+export { normalize } from './text.ts'
 export {
   Store,
   writeInputSchema,

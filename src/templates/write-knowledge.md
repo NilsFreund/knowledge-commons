@@ -22,7 +22,9 @@ Name it `<type>-<subject>` in kebab-case, for example `feedback-never-commit`. W
 ## How to write it down
 
 1. Call `knowledge_write` with name, description, type, scope and body.
-2. If it comes back with duplicate candidates, read them with `knowledge_read` and decide:
+2. If it comes back with candidates, read them with `knowledge_read`. Overlapping words do not mean the
+   entries agree, so decide which of three it is:
    - the same rule, differently worded -> call again with `updateName` set to that entry and a body that merges both, keeping what the existing one already got right
-   - genuinely different -> call again with `confirm: true`
+   - the opposite rule -> do not merge and do not write; tell the user both rules and ask which one holds
+   - unrelated after all -> call again with `confirm: true`, but only when every candidate is unrelated
 3. Report the result in one line: created or merged, which scope, which id.

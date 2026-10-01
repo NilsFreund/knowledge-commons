@@ -1,10 +1,10 @@
-import { Client } from '@modelcontextprotocol/client'
+import { Client, type ContentBlock } from '@modelcontextprotocol/client'
 import { InMemoryTransport } from '@modelcontextprotocol/server'
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { initStore, STATS_FILE } from '../src/core/index.ts'
+import { initStore, STATS_FILE, usageEventSchema, type UsageEvent } from '../src/core/index.ts'
 import { createServer } from '../src/mcp/server.ts'
 
 const TOOLS = [
@@ -27,8 +27,17 @@ let client: Client
 
 async function call(name: string, args: Record<string, unknown> = {}): Promise<{ text: string; isError: boolean }> {
   const result = await client.callTool({ name, arguments: args })
-  const [block] = result.content as { type: string; text: string }[]
-  return { text: block?.text ?? '', isError: result.isError === true }
+  return { text: textOf(result.content), isError: result.isError === true }
+}
+
+function textOf(content: readonly ContentBlock[]): string {
+  const [block] = content
+  return block?.type === 'text' ? block.text : ''
+}
+
+async function usageEvents(): Promise<readonly UsageEvent[]> {
+  const lines = (await readFile(join(root, STATS_FILE), 'utf8')).trim().split('\n')
+  return lines.map((line) => usageEventSchema.parse(JSON.parse(line)))
 }
 
 async function write(overrides: Record<string, unknown> = {}): Promise<{ text: string; isError: boolean }> {
@@ -215,10 +224,7 @@ describe('usage recording', () => {
     await write()
     await call('knowledge_search', { query: 'git' })
 
-    const events = (await readFile(join(root, STATS_FILE), 'utf8'))
-      .trim()
-      .split('\n')
-      .map((line) => JSON.parse(line) as { name: string; source: string; ok: boolean; detail?: string })
+    const events = await usageEvents()
 
     expect(events.map((event) => event.name)).toEqual(['knowledge_write', 'knowledge_search'])
     expect(events.every((event) => event.source === 'mcp' && event.ok)).toBe(true)
@@ -228,10 +234,7 @@ describe('usage recording', () => {
   test('records a failed call as failed', async () => {
     await call('knowledge_read', { names: ['nope'] })
 
-    const [event] = (await readFile(join(root, STATS_FILE), 'utf8'))
-      .trim()
-      .split('\n')
-      .map((line) => JSON.parse(line) as { ok: boolean })
+    const [event] = await usageEvents()
     expect(event?.ok).toBe(false)
   })
 })
@@ -246,9 +249,8 @@ describe('a store that is not there', () => {
     ])
 
     const result = await other.callTool({ name: 'knowledge_index', arguments: {} })
-    const [block] = result.content as { text: string }[]
     expect(result.isError).toBe(true)
-    expect(block?.text).toContain('no knowledge store at')
+    expect(textOf(result.content)).toContain('no knowledge store at')
     await other.close()
   })
 })

@@ -3,12 +3,12 @@ import { join, resolve } from 'node:path'
 import { parse as parseYaml, stringify as stringifyYaml } from 'yaml'
 import { z } from 'zod'
 import { err, ok, type KnowledgeError, type Result } from './result.ts'
-import { searchScore } from './search.ts'
+import { searchScores, type Searchable } from './search.ts'
 import { withWriteLock, writeFileAtomic } from './write.ts'
 
 const FRONTMATTER_PATTERN = /^---\r?\n([\s\S]*?)\r?\n---[^\S\r\n]*\r?\n?/
 const SECTION_PATTERN = /^##[^\S\r\n]+(\d{4}-\d{2}-\d{2})[^\S\r\n]*$/gm
-const MIN_SEARCH_SCORE = 0.1
+const MIN_SEARCH_SCORE = 0.2
 const SEARCH_LIMIT = 20
 
 export const researchFrontmatterSchema = z.object({
@@ -113,10 +113,10 @@ export class ResearchStore {
   async search(query: string, options: { scopes?: readonly string[]; limit?: number } = {}): Promise<readonly ResearchHit[]> {
     const { docs } = await this.load()
     const scopes = options.scopes
-    return docs
-      .filter((doc) => scopes === undefined || scopes.includes(doc.scope))
-      .map((doc) => ({ doc, score: searchScore(query, { name: doc.name, description: doc.title, body: doc.body }) }))
+    const inScope = docs.filter((doc) => scopes === undefined || scopes.includes(doc.scope))
+    return searchScores(query, inScope.map(searchable))
       .filter((hit) => hit.score >= MIN_SEARCH_SCORE)
+      .map(({ item, score }) => ({ doc: item.doc, score }))
       .sort((a, b) => b.score - a.score || a.doc.name.localeCompare(b.doc.name))
       .slice(0, options.limit ?? SEARCH_LIMIT)
   }
@@ -261,6 +261,10 @@ export function parseSections(body: string): readonly ResearchSection[] {
     const end = headings[index + 1]?.index ?? body.length
     return [{ date, body: body.slice(start, end).trim() }]
   })
+}
+
+function searchable(doc: ResearchDoc): Searchable & { readonly doc: ResearchDoc } {
+  return { name: doc.name, description: doc.title, body: doc.body, doc }
 }
 
 function toSummary(doc: ResearchDoc): ResearchSummary {

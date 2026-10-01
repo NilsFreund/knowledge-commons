@@ -283,7 +283,7 @@ describe('doctor', () => {
     await write(entry(NEVER_COMMIT))
     await write(entry({ ...NEVER_COMMIT_REWORDED, confirm: true }))
     const diagnostics = await store.doctor()
-    expect(diagnostics.some((diagnostic) => diagnostic.message.startsWith('possible duplicate'))).toBe(true)
+    expect(diagnostics.some((diagnostic) => diagnostic.message.startsWith('overlap'))).toBe(true)
   })
 
   test('stays quiet about a pair that was looked at and dismissed', async () => {
@@ -437,5 +437,18 @@ describe('rename', () => {
   test('leaves the store untouched when the entry does not exist', async () => {
     expect((await store.rename('nope', 'something-else')).ok).toBe(false)
     expect((await store.load()).entries).toHaveLength(2)
+  })
+})
+
+describe('doctor advice on an overlap', () => {
+  /** Dismissing hides a pair for good, so suggesting it for a contradiction would silence the contradiction. */
+  test('reserves dismissal for unrelated pairs and asks for a contradiction to be resolved', async () => {
+    await write(entry(NEVER_COMMIT))
+    await write(entry({ ...NEVER_COMMIT_REWORDED, confirm: true }))
+    const [overlap] = (await store.doctor()).filter((diagnostic) => diagnostic.message.startsWith('overlap'))
+
+    expect(overlap?.message).toContain('resolve a contradiction')
+    expect(overlap?.message).toContain('if they are unrelated')
+    expect(overlap?.message).not.toContain('if they are different rules')
   })
 })

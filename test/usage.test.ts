@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { STATS_FILE, type UsageEvent } from '../src/core/index.ts'
+import { STATS_FILE, usageEventSchema, type UsageEvent } from '../src/core/index.ts'
 import { record } from '../src/usage.ts'
 
 let root: string
@@ -19,7 +19,7 @@ async function recorded(): Promise<readonly UsageEvent[]> {
     .trim()
     .split('\n')
     .filter(Boolean)
-    .map((line) => JSON.parse(line) as UsageEvent)
+    .map((line) => usageEventSchema.parse(JSON.parse(line)))
 }
 
 beforeEach(async () => {

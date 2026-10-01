@@ -112,20 +112,27 @@ loaded), `project` (constraints and decisions that are not visible in the code),
 reading. If entries already say something similar, the call reports them and writes nothing:
 
 ```
-Nothing was written. 1 existing entry looks like the same fact:
+Nothing was written. This entry overlaps heavily with what you are writing:
 
 - 0.39  global/feedback-never-commit - The user performs all git operations themselves
 
-Read them, then write again: pass updateName to merge into one, or confirm to add a separate entry.
+Decide for each whether it says the same thing, the opposite, or something unrelated. Merge into a
+repeat with updateName. Do not merge an opposite: ask the user which rule holds. Pass confirm only
+when every one is unrelated.
 ```
 
 The agent reads them and decides. When nothing similar exists it writes straight away, so the common
 case stays one call.
 
+The tool deliberately does not claim the entries agree. "Never commit" and "Always commit" share
+almost every word and score 0.79, so word overlap cannot tell a duplicate from a contradiction. The
+agent reading both texts can, which is why the decision is left to it.
+
 Detection compares content words rather than character n-grams, because the case that matters is the
-same rule in different words. It is tuned for recall, so it over-reports and leaves the judgement to
-the agent. `kn doctor --dismiss a b` records a pair you have read and found different, which keeps
-the report from listing it forever.
+same rule in different words. Words that most of the store shares count for less, so two entries
+that only have their subject in common stop looking alike. It is tuned for recall, so it
+over-reports and leaves the judgement to the agent. `kn doctor --dismiss a b` records a pair you
+have read and found different, which keeps the report from listing it forever.
 
 ### Instructions the repository carries itself
 
@@ -254,8 +261,11 @@ you edit by hand takes effect at once.
 | `research_read` | Full documents by name, every round included |
 | `research_list` | Every recorded question, its rounds and when it was last revisited |
 
-Search matches whole words and word prefixes, so `rec` finds `recording` while `art` does not find
-`restart`.
+Search ranks with BM25F over name, description and body, weighted 3, 2 and 1. A term matches a whole
+word or, from four letters on, the start of one for half the credit, so `reco` finds `recording`
+while `art` does not find `restart`. Stopwords in English and German are dropped from the query, so
+a question phrased as a sentence ranks the same as its keywords. A term most entries contain counts
+for less than one few do, and a long body earns less per hit than a short one.
 
 ## CLI
 

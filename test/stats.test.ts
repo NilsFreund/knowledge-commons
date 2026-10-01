@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { appendFile, mkdtemp, readFile, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { pruneUsage, readUsage, recordUsage, STATS_FILE, summarize, type UsageEvent } from '../src/core/index.ts'
+import { pruneUsage, readUsage, recordUsage, STATS_FILE, summarize, usageEventSchema, type UsageEvent } from '../src/core/index.ts'
 
 let root: string
 
@@ -25,7 +25,7 @@ describe('recordUsage', () => {
 
     const lines = (await readFile(join(root, STATS_FILE), 'utf8')).trim().split('\n')
     expect(lines).toHaveLength(2)
-    expect(JSON.parse(lines[1] as string).name).toBe('knowledge_search')
+    expect(usageEventSchema.parse(JSON.parse(lines[1] ?? '')).name).toBe('knowledge_search')
   })
 
   test('stays silent when the directory does not exist, so a call never fails over counting', async () => {

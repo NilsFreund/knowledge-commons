@@ -37,8 +37,8 @@ afterEach(async () => {
 })
 
 describe('dispatch', () => {
-  test.each([[], ['--help'], ['-h'], ['help']])('prints the command list for %p', async (...args) => {
-    const result = await run(...(args as string[]))
+  test.each([[[]], [['--help']], [['-h']], [['help']]])('prints the command list for %p', async (args: string[]) => {
+    const result = await run(...args)
     expect(result.code).toBe(0)
     expect(result.out).toContain('kn <command> [options]')
   })
@@ -183,8 +183,8 @@ describe('commands against a store', () => {
   test.each([
     [['rm'], 'exactly one entry name'],
     [['mv', 'only-one'], 'the current name and the new one'],
-  ])('treats %p as a usage error', async (args, message) => {
-    const result = await run(...(args as string[]), '--store', store)
+  ] as const)('treats %p as a usage error', async (args, message) => {
+    const result = await run(...args, '--store', store)
     expect(result.code).toBe(2)
     expect(result.err).toContain(message)
   })

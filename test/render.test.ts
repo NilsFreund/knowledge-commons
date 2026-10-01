@@ -145,8 +145,17 @@ describe('renderCandidates', () => {
   })
 
   test('agrees in number with the candidate count', () => {
-    expect(renderCandidates([candidate])).toContain('entry looks')
-    expect(renderCandidates([candidate, { ...candidate, id: 'global/other' }])).toContain('entries look')
+    expect(renderCandidates([candidate])).toContain('This entry overlaps')
+    expect(renderCandidates([candidate, { ...candidate, id: 'global/other' }])).toContain('These entries overlap')
+  })
+
+  /** "Never commit" and "Always commit" overlap at 0.79, so the wording is the only thing stopping a merge of opposites. */
+  test('never claims the overlap means agreement, and says what to do about a contradiction', () => {
+    const text = renderCandidates([candidate])
+    expect(text).not.toContain('same fact')
+    expect(text).toContain('Do not merge an opposite')
+    expect(text).toContain('ask the user')
+    expect(text).toContain('only when every one is unrelated')
   })
 })
 

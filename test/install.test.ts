@@ -115,8 +115,9 @@ describe('install', () => {
 
     expect(statusOf(actions, join('.cursor', 'commands', 'polish.md'))?.status).toBe('updated')
     const backups = (await readdir(join(home, '.cursor', 'commands'))).filter((file) => file.includes('.bak-'))
+    const [backup = ''] = backups
     expect(backups).toHaveLength(1)
-    expect(await read(join('.cursor', 'commands', backups[0] as string))).toBe('my own long-form polish prompt')
+    expect(await read(join('.cursor', 'commands', backup))).toBe('my own long-form polish prompt')
   })
 
   test('reports an already-current stub as unchanged and leaves no backup', async () => {

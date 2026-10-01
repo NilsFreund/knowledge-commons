@@ -89,11 +89,12 @@ export function renderWriteOutcome(outcome: WriteOutcome): string {
   }
 }
 
+/** Overlap cannot tell agreement from contradiction, so this never claims they say the same thing. */
 export function renderCandidates(candidates: readonly Candidate[]): string {
   return [
-    `Nothing was written. ${candidates.length} existing ${candidates.length === 1 ? 'entry looks' : 'entries look'} like the same fact:`,
+    `Nothing was written. ${candidates.length === 1 ? 'This entry overlaps' : 'These entries overlap'} heavily with what you are writing:`,
     candidates.map((candidate) => `- ${candidate.score.toFixed(2)}  ${candidate.id} - ${candidate.description}`).join('\n'),
-    'Read them, then write again: pass updateName to merge into one, or confirm to add a separate entry.',
+    'Decide for each whether it says the same thing, the opposite, or something unrelated. Merge into a repeat with updateName. Do not merge an opposite: ask the user which rule holds. Pass confirm only when every one is unrelated.',
   ].join('\n\n')
 }
 
