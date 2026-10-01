@@ -1,0 +1,54 @@
+{
+  "name": "knowledge-commons",
+  "version": "0.1.0",
+  "description": "One knowledge store for every coding agent. Claude Code, Codex and Cursor read and write the same facts over MCP.",
+  "license": "MIT",
+  "author": "Nils Freund",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/NilsFreund/knowledge-commons.git"
+  },
+  "homepage": "https://github.com/NilsFreund/knowledge-commons#readme",
+  "bugs": {
+    "url": "https://github.com/NilsFreund/knowledge-commons/issues"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "claude-code",
+    "codex",
+    "cursor",
+    "knowledge-base",
+    "agent-memory",
+    "cli"
+  ],
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "bin": {
+    "kn": "./dist/cli.js"
+  },
+  "exports": {
+    ".": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && bun build src/cli/index.ts --outfile dist/cli.js --target node --banner \"#!/usr/bin/env node\" && bun build src/core/index.ts --outfile dist/index.js --target node && cp -R src/templates dist/templates && chmod +x dist/cli.js",
+    "prepare": "bun run build",
+    "test": "bun test",
+    "typecheck": "tsc --noEmit",
+    "kn": "bun run ./src/cli/index.ts",
+    "mcp": "bun run ./src/cli/index.ts mcp"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/client": "^2.2.0",
+    "@modelcontextprotocol/server": "^2.0.0",
+    "@types/bun": "^1.3.0",
+    "typescript": "^5.9.0",
+    "yaml": "^2.8.1",
+    "zod": "^4.6.5"
+  }
+}
