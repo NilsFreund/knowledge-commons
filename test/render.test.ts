@@ -118,7 +118,14 @@ describe('renderSearch', () => {
 
 describe('renderWriteOutcome', () => {
   test('reports a creation', () => {
-    expect(renderWriteOutcome({ status: 'created', entry: entry() })).toBe('Created global/feedback-never-commit.')
+    expect(renderWriteOutcome({ status: 'created', entry: entry(), nearest: [] })).toBe('Created global/feedback-never-commit.')
+  })
+
+  test('lists the closest entries with a creation, and what to do if one says the opposite', () => {
+    const nearest: Candidate = { id: 'global/feedback-agent-pushes', name: 'feedback-agent-pushes', scope: 'global', description: 'Push when done', score: 0.19 }
+    const text = renderWriteOutcome({ status: 'created', entry: entry(), nearest: [nearest] })
+    expect(text).toContain('0.19  global/feedback-agent-pushes - Push when done')
+    expect(text).toContain('says the opposite')
   })
 
   test('reports an update, and says so when the scope moved', () => {

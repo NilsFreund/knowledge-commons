@@ -3,7 +3,7 @@ import { join, resolve } from 'node:path'
 import { z } from 'zod'
 import { loadConfig, saveConfig } from './config.ts'
 import { diagnose, type Diagnostic } from './doctor.ts'
-import { findCandidates, type Candidate } from './duplicates.ts'
+import { findCandidates, findNearest, type Candidate } from './duplicates.ts'
 import { parseEntryFile, serializeEntryFile } from './entry-file.ts'
 import { listPrompts, readPrompt } from './prompts.ts'
 import { err, ok, type KnowledgeError, type Result } from './result.ts'
@@ -35,7 +35,7 @@ type ValidatedWriteInput = z.output<typeof writeInputSchema>
 
 export type WriteOutcome =
   | { readonly status: 'candidates'; readonly candidates: readonly Candidate[] }
-  | { readonly status: 'created'; readonly entry: Entry }
+  | { readonly status: 'created'; readonly entry: Entry; readonly nearest: readonly Candidate[] }
   | { readonly status: 'updated'; readonly entry: Entry; readonly previous: Entry }
 
 export interface LoadedEntries {
@@ -235,7 +235,7 @@ export class Store {
       updated: today,
       sources: input.sources,
     })
-    return ok({ status: 'created', entry })
+    return ok({ status: 'created', entry, nearest: input.confirm ? [] : findNearest(input, entries) })
   }
 
   /** Refuses while other entries still link to it, because a silent dangling link is worse than a refusal. */

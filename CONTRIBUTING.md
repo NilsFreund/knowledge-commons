@@ -20,11 +20,11 @@ read, `load` and everything built on it will throw, and the frontends catch that
 Inside `core`, each module has one job. `store.ts` does entry operations and `research.ts` does the
 same for research documents. `entry-file.ts` handles a single file on disk. `text.ts` turns text
 into comparable words, `similarity.ts` scores duplicates, `search.ts` scores queries, and
-`duplicates.ts` serves both callers of similarity.
-`doctor.ts` is a pure function over loaded entries. `write.ts` and `serialize.ts` hold the write lock
-and the atomic rename. The smaller ones are `config.ts`, `prompts.ts`, `scope.ts`, `discover.ts`,
-`instructions.ts`, `stats.ts` and `init.ts`, with `types.ts` and `result.ts` for the shared shapes
-and `index.ts` as the public surface.
+`duplicates.ts` serves both callers of similarity. `doctor.ts` is a pure function over loaded
+entries. `write.ts` and `serialize.ts` hold the write lock and the atomic rename. The smaller ones
+are `config.ts`, `prompts.ts`, `scope.ts`, `discover.ts`, `instructions.ts`, `stats.ts` and
+`init.ts`, with `types.ts` and `result.ts` for the shared shapes and `index.ts` as the public
+surface.
 
 `src/usage.ts` sits with the frontends rather than in the core, because honouring `KN_NO_USAGE`
 means reading the environment and the core does not do that.
@@ -46,7 +46,7 @@ a frontend instead.
 
 Comments are rare and one line. The code should say what it does through names and types. A comment
 earns its place by recording a why that the code cannot express, such as a measured trade-off or a
-constraint from someone else's file format. The repository currently has 48 of them.
+constraint from someone else's file format. The repository currently has 50 of them.
 
 No type assertions. `strict`, `noUncheckedIndexedAccess` and `exactOptionalPropertyTypes` are on,
 and there are currently zero `as` casts outside `as const`, in the tests as well as the source.
@@ -69,10 +69,10 @@ finish.
 
 ## Tests
 
-`bun test` runs 275 of them across every layer. The core is tested directly, the MCP server through a
+`bun test` runs 283 of them across every layer. The core is tested directly, the MCP server through a
 real client over an in-memory transport pair, and the CLI by calling `main()` and reading what it
-prints. Fixtures are invented. No real knowledge stores, no real repository names and no
-personal paths belong in the tests or anywhere else in this repository.
+prints. Fixtures are invented. Real knowledge stores, real repository names and personal paths do
+not belong in the tests or anywhere else in this repository.
 
 The duplicate-detection threshold is pinned by `test/similarity.test.ts`. It asserts that a reworded
 duplicate and a merely similar entry stay on opposite sides of it with margin. If a change to

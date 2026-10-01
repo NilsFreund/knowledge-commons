@@ -121,18 +121,21 @@ repeat with updateName. Do not merge an opposite: ask the user which rule holds.
 when every one is unrelated.
 ```
 
-The agent reads them and decides. When nothing similar exists it writes straight away, so the common
-case stays one call.
+The agent reads them and decides. When nothing similar exists it writes straight away, and the common
+case stays one call. Even then the reply lists the three closest entries. A contradiction worded
+differently, such as "explain every change in detail" against "answer short", shares too few words
+to stop the write, but it still ranks first among them and the agent gets to see it.
 
 The tool deliberately does not claim the entries agree. "Never commit" and "Always commit" share
 almost every word and score 0.79, so word overlap cannot tell a duplicate from a contradiction. The
-agent reading both texts can, which is why the decision is left to it.
+agent reading both texts can, and the tool leaves the decision to it.
 
 Detection compares content words rather than character n-grams, because the case that matters is the
-same rule in different words. Words that most of the store shares count for less, so two entries
-that only have their subject in common stop looking alike. It is tuned for recall, so it
-over-reports and leaves the judgement to the agent. `kn doctor --dismiss a b` records a pair you
-have read and found different, which keeps the report from listing it forever.
+same rule in different words. Plurals and a final `e` are folded: `entries` meets `entry`, `caches`
+meets `cache`. Words most of the store shares count for less, which stops two entries from looking
+alike just because they are about the same subject. Detection is tuned for recall. It over-reports
+and leaves the judgement to the agent. `kn doctor --dismiss a b` records a pair you have read and
+found different, and the report stops listing it.
 
 ### Instructions the repository carries itself
 
@@ -227,8 +230,8 @@ knowledge_write
 ```
 
 Every tool and command call appends one line to `.usage.jsonl` in the store. The file never leaves
-the machine, and it is gitignored so it does not churn a versioned store. The two breakdowns are
-what you actually read: which repositories pull knowledge, and how often a write turns out to be
+the machine, and it is gitignored to keep a versioned store from churning. The two breakdowns at the
+bottom are the useful part: which repositories pull knowledge, and how often a write turns out to be
 something the store already knew.
 
 `--since <days>` narrows the window, `--prune <days>` trims the log, and setting `KN_NO_USAGE`
@@ -262,10 +265,10 @@ you edit by hand takes effect at once.
 | `research_list` | Every recorded question, its rounds and when it was last revisited |
 
 Search ranks with BM25F over name, description and body, weighted 3, 2 and 1. A term matches a whole
-word or, from four letters on, the start of one for half the credit, so `reco` finds `recording`
-while `art` does not find `restart`. Stopwords in English and German are dropped from the query, so
-a question phrased as a sentence ranks the same as its keywords. A term most entries contain counts
-for less than one few do, and a long body earns less per hit than a short one.
+word, or from four letters on the start of one for half the credit: `reco` finds `recording`, `art`
+does not find `restart`. English and German stopwords are dropped from the query, and a question
+phrased as a sentence ranks the same as its keywords. A term most entries contain counts for less
+than one few do, and a long body earns less per hit than a short one.
 
 ## CLI
 

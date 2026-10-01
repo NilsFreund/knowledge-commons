@@ -1,7 +1,8 @@
-import { buildWeights, similarityOfTokens, tokensOf } from './similarity.ts'
+import { buildWeights, similarityOfTokens, tokensOf, type SimilarityInput } from './similarity.ts'
 import { duplicateKey, entryId, type Entry } from './types.ts'
 
 const CANDIDATE_LIMIT = 5
+const NEAREST_LIMIT = 3
 
 export interface Candidate {
   readonly id: string
@@ -17,26 +18,32 @@ export interface DuplicatePair {
   readonly score: number
 }
 
-export function findCandidates(
-  input: { name: string; description: string; body: string },
-  entries: readonly Entry[],
-  threshold: number,
-): readonly Candidate[] {
+export function findCandidates(input: SimilarityInput, entries: readonly Entry[], threshold: number): readonly Candidate[] {
+  return ranked(input, entries)
+    .filter((candidate) => candidate.score >= threshold)
+    .slice(0, CANDIDATE_LIMIT)
+}
+
+/** A contradiction in other words stays below the threshold but still ranks first, so it is shown without blocking the write. */
+export function findNearest(input: SimilarityInput, entries: readonly Entry[]): readonly Candidate[] {
+  return ranked(input, entries)
+    .filter((candidate) => candidate.score > 0)
+    .slice(0, NEAREST_LIMIT)
+}
+
+function ranked(input: SimilarityInput, entries: readonly Entry[]): readonly Candidate[] {
   const weights = buildWeights([...entries, input])
   const inputTokens = tokensOf(input)
 
   return entries
-    .map((entry) => ({ entry, score: similarityOfTokens(inputTokens, tokensOf(entry), weights) }))
-    .filter((hit) => hit.score >= threshold)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, CANDIDATE_LIMIT)
-    .map(({ entry, score }) => ({
+    .map((entry) => ({
       id: entryId(entry),
       name: entry.name,
       scope: entry.scope,
       description: entry.description,
-      score,
+      score: similarityOfTokens(inputTokens, tokensOf(entry), weights),
     }))
+    .sort((a, b) => b.score - a.score)
 }
 
 export function findNearDuplicates(

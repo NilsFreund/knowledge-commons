@@ -81,7 +81,7 @@ export function renderSearch(hits: readonly SearchHit[]): string {
 export function renderWriteOutcome(outcome: WriteOutcome): string {
   switch (outcome.status) {
     case 'created':
-      return `Created ${entryId(outcome.entry)}.`
+      return renderCreated(outcome.entry, outcome.nearest)
     case 'updated':
       return `Updated ${entryId(outcome.entry)}${outcome.previous.scope === outcome.entry.scope ? '' : ` (moved from ${entryId(outcome.previous)})`}.`
     case 'candidates':
@@ -89,13 +89,29 @@ export function renderWriteOutcome(outcome: WriteOutcome): string {
   }
 }
 
+function renderCreated(entry: Entry, nearest: readonly Candidate[]): string {
+  const created = `Created ${entryId(entry)}.`
+  if (nearest.length === 0) return created
+
+  return [
+    created,
+    'Closest existing entries, below the overlap threshold:',
+    renderCandidateList(nearest),
+    'If one of them says the opposite, tell the user both rules and ask which one holds.',
+  ].join('\n\n')
+}
+
 /** Overlap cannot tell agreement from contradiction, so this never claims they say the same thing. */
 export function renderCandidates(candidates: readonly Candidate[]): string {
   return [
     `Nothing was written. ${candidates.length === 1 ? 'This entry overlaps' : 'These entries overlap'} heavily with what you are writing:`,
-    candidates.map((candidate) => `- ${candidate.score.toFixed(2)}  ${candidate.id} - ${candidate.description}`).join('\n'),
+    renderCandidateList(candidates),
     'Decide for each whether it says the same thing, the opposite, or something unrelated. Merge into a repeat with updateName. Do not merge an opposite: ask the user which rule holds. Pass confirm only when every one is unrelated.',
   ].join('\n\n')
+}
+
+function renderCandidateList(candidates: readonly Candidate[]): string {
+  return candidates.map((candidate) => `- ${candidate.score.toFixed(2)}  ${candidate.id} - ${candidate.description}`).join('\n')
 }
 
 export function renderDiagnostics(diagnostics: readonly Diagnostic[]): string {

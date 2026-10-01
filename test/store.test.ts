@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { configSchema, initStore, loadConfig, saveConfig, Store, type StoreConfig, type Result, type WriteInput } from '../src/core/index.ts'
-import { COMMIT_MESSAGES, NEVER_COMMIT, NEVER_COMMIT_REWORDED } from './fixtures.ts'
+import { COMMIT_MESSAGES, METRICS_DASHBOARD, NEVER_COMMIT, NEVER_COMMIT_REWORDED } from './fixtures.ts'
 
 const TODAY = '2026-09-21'
 
@@ -91,6 +91,22 @@ describe('write', () => {
   test('does not stop a genuinely different entry that shares vocabulary', async () => {
     await write(entry(NEVER_COMMIT))
     expect((await write(entry(COMMIT_MESSAGES))).status).toBe('created')
+  })
+
+  test('names the closest entries along with a creation, so a reworded contradiction is still seen', async () => {
+    await write(entry(NEVER_COMMIT))
+    await write(entry(METRICS_DASHBOARD))
+    const outcome = await write(entry(COMMIT_MESSAGES))
+
+    expect(outcome.status).toBe('created')
+    if (outcome.status !== 'created') return
+    expect(outcome.nearest.map((candidate) => candidate.id)).toEqual(['global/feedback-never-commit'])
+  })
+
+  test('names nothing once the agent has confirmed, since it has just read the candidates', async () => {
+    await write(entry(NEVER_COMMIT))
+    const outcome = await write(entry({ ...COMMIT_MESSAGES, confirm: true }))
+    expect(outcome.status === 'created' && outcome.nearest).toEqual([])
   })
 
   test('writes anyway once the agent confirms', async () => {

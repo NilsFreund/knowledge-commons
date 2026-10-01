@@ -34,6 +34,16 @@ describe('contentTokens', () => {
     expect(contentTokens('commits').has('commit')).toBe(true)
     expect(contentTokens('access').has('access')).toBe(true)
   })
+
+  test.each([
+    ['entries', 'entry'],
+    ['caches', 'cache'],
+    ['branches', 'branch'],
+    ['movies', 'movie'],
+    ['rules', 'rule'],
+  ])('folds %p and %p to the same token', (plural, singular) => {
+    expect([...contentTokens(plural)]).toEqual([...contentTokens(singular)])
+  })
 })
 
 describe('similarity', () => {

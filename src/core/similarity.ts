@@ -65,13 +65,22 @@ export function contentTokens(text: string): ReadonlySet<string> {
   const tokens = new Set<string>()
   for (const word of normalize(text).split(' ')) {
     if (word.length < MIN_TOKEN_LENGTH || STOPWORDS.has(word)) continue
-    tokens.add(singularize(word))
+    tokens.add(stem(word))
   }
   return tokens
 }
 
-function singularize(word: string): string {
-  return word.length > 4 && word.endsWith('s') && !word.endsWith('ss') ? word.slice(0, -1) : word
+/** Folds plurals and a final `e`, so `entries` meets `entry` and `caches` meets `cache`. */
+function stem(word: string): string {
+  if (word.length < 4) return word
+  return singular(word).replace(/y$/, 'i').replace(/e$/, '')
+}
+
+function singular(word: string): string {
+  if (word.endsWith('ies')) return `${word.slice(0, -3)}i`
+  if (word.endsWith('ss')) return word
+  if (word.endsWith('s')) return word.slice(0, -1)
+  return word
 }
 
 function intersection(a: ReadonlySet<string>, b: ReadonlySet<string>): readonly string[] {
