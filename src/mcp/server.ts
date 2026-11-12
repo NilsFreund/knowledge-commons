@@ -246,7 +246,11 @@ export function createServer(options: ServerOptions): McpServer {
 }
 
 export async function startStdioServer(options: ServerOptions): Promise<void> {
-  await serveStdio(() => createServer(options))
+  const handle = serveStdio(() => createServer(options))
+  // The SDK transport ignores stdin closing; without this an orphaned server spins at 100% CPU.
+  const shutdown = () => void handle.close().finally(() => process.exit(0))
+  process.stdin.once('end', shutdown)
+  process.stdin.once('close', shutdown)
   // stdout carries JSON-RPC and nothing else.
   console.error(`knowledge MCP server ready (store: ${options.storeRoot})`)
 }
