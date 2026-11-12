@@ -254,3 +254,22 @@ describe('a store that is not there', () => {
     await other.close()
   })
 })
+
+describe('the stdio server', () => {
+  test('exits once its client closes stdin', async () => {
+    const store = await mkdtemp(join(tmpdir(), 'kn-stdio-'))
+    try {
+      const server = Bun.spawn(['bun', join(import.meta.dir, '../src/cli/index.ts'), 'mcp', '--store', store], {
+        stdin: 'pipe',
+        stdout: 'ignore',
+        stderr: 'pipe',
+        timeout: 3000,
+      })
+      await server.stderr.getReader().read()
+      server.stdin.end()
+      expect(await server.exited).toBe(0)
+    } finally {
+      await rm(store, { recursive: true, force: true })
+    }
+  })
+})
